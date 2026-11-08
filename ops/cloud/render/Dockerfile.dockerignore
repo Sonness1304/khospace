@@ -1,0 +1,15 @@
+.git
+.qa
+frontend
+tests
+**/node_modules
+**/bin
+**/obj
+**/uploads
+**/.env*
+**/secrets*
+**/*.pem
+**/*.key
+**/*.pfx
+**/*.bak
+**/appsettings.*.json

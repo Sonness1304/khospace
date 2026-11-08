@@ -1,0 +1,37 @@
+# Apply this custom Blueprint path only from the reviewed, committed Render export.
+# No custom domains: health Host is the exact RENDER_EXTERNAL_HOSTNAME.
+services:
+  - type: web
+    name: khospace-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ops/cloud/render/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /health/live
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: CloudHosting__Enabled
+        value: "true"
+      - key: CloudHosting__DataProtectionStore
+        value: PostgreSQL
+      - key: Database__Provider
+        value: PostgreSQL
+      - key: Database__SupabaseProjectRef
+        value: jhemdameyrcxqxsffugw
+      - key: Database__ProtectedProjectRef
+        value: uwjglyucmyrjxzzryhth
+      - key: Database__ExpectedHost
+        sync: false
+      - key: ConnectionStrings__WarehouseRent
+        sync: false
+      - key: CloudHosting__DataProtectionEncryptionKey
+        sync: false
+      - key: CloudHosting__SharedProxyKey
+        sync: false
+      - key: CloudHosting__PublicOrigin
+        sync: false
+      - key: KHOSPACE_INITIALIZE_CLOUD_ON_START
+        value: "0"

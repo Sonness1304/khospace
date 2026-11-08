@@ -1,0 +1,28 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, expect, it, vi } from 'vitest';
+import RenewalActions from './RenewalActions';
+const access={userId:'customer',organizationId:'org-a',organizationRole:'CustomerAdmin',facilityId:'facility-a',facilityRoles:[],operatorAdmin:false};
+const preview={leaseId:'lease-a',quoteId:'quote-a',leaseVersion:'lv1',quoteVersion:'qv1',canApply:true};
+const reply=(body:unknown,status=200)=>({ok:status===200,status,json:async()=>body});
+afterEach(()=>vi.unstubAllGlobals());
+it('confirms frozen customer terms and recovers an unknown command in its original organization',async()=>{
+ const fetchMock=vi.fn().mockResolvedValueOnce(reply({token:'csrf'})).mockResolvedValueOnce(reply({},504)).mockResolvedValueOnce(reply({result:{resourceId:'accept-a'}}));vi.stubGlobal('fetch',fetchMock);const view=render(<RenewalActions access={access} preview={preview}/>);const user=userEvent.setup();
+ await user.type(screen.getByLabelText("Lý do gia hạn"),'Accept added rent');await user.click(screen.getByLabelText("Tôi chấp nhận tiền thuê bổ sung và giữ nguyên tiền đặt cọc hiện tại"));await user.click(screen.getByRole('button',{name:"Xác nhận điều khoản gia hạn"}));await screen.findByText(/Chưa xác định kết quả yêu cầu gia hạn/);
+ view.rerender(<RenewalActions access={{...access,organizationId:'org-b'}} preview={null}/>);expect(screen.getByRole('button',{name:"Đọc kết quả yêu cầu gia hạn"})).toBeDisabled();
+ view.rerender(<RenewalActions access={access} preview={null}/>);await user.click(screen.getByRole('button',{name:"Đọc kết quả yêu cầu gia hạn"}));expect(await screen.findByText(/accept-a/)).toBeInTheDocument();expect(fetchMock.mock.calls[2][0]).toContain('scopeId=org-a');
+});
+it('requires Sales to read accepted terms before application',async()=>{
+ const fetchMock=vi.fn().mockResolvedValueOnce(reply({id:'accept-a',leaseId:'lease-a',quoteId:'quote-a',organizationId:'org-a',facilityId:'facility-a',applied:false})).mockResolvedValueOnce(reply({token:'csrf'})).mockResolvedValueOnce(reply({result:{resourceId:'lease-a',versionNo:2}}));vi.stubGlobal('fetch',fetchMock);render(<RenewalActions access={{...access,userId:'sales',organizationId:'',organizationRole:undefined,facilityRoles:['Sales']}} preview={null}/>);const user=userEvent.setup();
+ await user.type(screen.getByLabelText("ID hợp đồng gia hạn đã chấp nhận"),'lease-a');await user.type(screen.getByLabelText("ID xác nhận gia hạn"),'accept-a');await user.click(screen.getByRole('button',{name:"Tải gia hạn đã chấp nhận"}));await screen.findByText(/Báo giá đã chấp nhận: quote-a/);await user.type(screen.getByLabelText("Lý do gia hạn"),'Apply accepted extension');await user.click(screen.getByRole('button',{name:"Áp dụng gia hạn đã chấp nhận"}));expect(await screen.findByText(/Phiên bản hợp đồng 2/)).toBeInTheDocument();
+});
+it('retries only the frozen renewal command after404 and preserves uncertainty after401',async()=>{
+ const fetchMock=vi.fn().mockResolvedValueOnce(reply({token:'csrf'})).mockResolvedValueOnce(reply({},504)).mockResolvedValueOnce(reply({},404)).mockResolvedValueOnce(reply({token:'csrf'})).mockResolvedValueOnce(reply({},401));vi.stubGlobal('fetch',fetchMock);render(<RenewalActions access={access} preview={preview}/>);const user=userEvent.setup();
+ await user.type(screen.getByLabelText("Lý do gia hạn"),'Original accepted reason');await user.click(screen.getByLabelText("Tôi chấp nhận tiền thuê bổ sung và giữ nguyên tiền đặt cọc hiện tại"));await user.click(screen.getByRole('button',{name:"Xác nhận điều khoản gia hạn"}));await screen.findByText(/Chưa xác định kết quả yêu cầu gia hạn/);await user.clear(screen.getByLabelText("Lý do gia hạn"));await user.type(screen.getByLabelText("Lý do gia hạn"),'Changed reason');await user.click(screen.getByRole('button',{name:"Đọc kết quả yêu cầu gia hạn"}));await user.click(await screen.findByRole('button',{name:"Thử lại yêu cầu gia hạn gốc"}));await screen.findByText(/Chưa xác định kết quả yêu cầu gia hạn/);expect(fetchMock.mock.calls[4][1].body).toBe(fetchMock.mock.calls[1][1].body);expect(fetchMock.mock.calls[4][1].headers['Idempotency-Key']).toBe(fetchMock.mock.calls[1][1].headers['Idempotency-Key']);expect(screen.getByRole('button',{name:"Xác nhận điều khoản gia hạn"})).toBeDisabled();
+});
+it('requires a new checkbox confirmation when quoted terms change',async()=>{
+ const view=render(<RenewalActions access={access} preview={preview}/>);const user=userEvent.setup();await user.click(screen.getByLabelText("Tôi chấp nhận tiền thuê bổ sung và giữ nguyên tiền đặt cọc hiện tại"));expect(screen.getByRole('checkbox')).toBeChecked();view.rerender(<RenewalActions access={access} preview={{...preview,quoteId:'quote-b'}}/>);expect(screen.getByRole('checkbox')).not.toBeChecked();
+});
+it('does not disclose a late successful acceptance ID after switching organization',async()=>{
+ let resolve:(value:unknown)=>void=()=>{};vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(reply({token:'csrf'})).mockImplementationOnce(()=>new Promise(r=>{resolve=r;})));const view=render(<RenewalActions access={access} preview={preview}/>);const user=userEvent.setup();await user.type(screen.getByLabelText("Lý do gia hạn"),'Accept before context switch');await user.click(screen.getByRole('checkbox'));await user.click(screen.getByRole('button',{name:"Xác nhận điều khoản gia hạn"}));view.rerender(<RenewalActions access={{...access,organizationId:'org-b'}} preview={null}/>);resolve(reply({result:{resourceId:'private-acceptance-a'}}));await new Promise(r=>setTimeout(r,0));expect(screen.queryByText(/private-acceptance-a/)).not.toBeInTheDocument();
+});

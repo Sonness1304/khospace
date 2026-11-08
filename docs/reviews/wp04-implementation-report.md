@@ -1,0 +1,28 @@
+# WP04 — Immutable monthly quotes
+
+October28,2026. Base `f8a4926289025f0ca57dc6b9ee47d2b9233c8562`; Jarvis sole application writer. Approved FR-010 and BR-006/009/010. No hold/booking/finance routes introduced.
+
+Implemented pure monthly PriceCalculator, immutable quote/line snapshots, scoped POST/GET quotes and customer quote UI. Quote creation locks selected unit parents briefly for a consistent tariff/area snapshot, reads SQL UTC after locks, selects rates by quote creation local date and expires24 hours later. It never creates allocations or promises availability. Currently published facility/units and active organization required; CustomerAdmin or assigned Sales/operator may create, current organization members or assigned Sales may read. All selected units must belong to one facility and have exactly one current sellable rate. Up to20 whole units,1–365 rental days, exclusive end.
+
+Each unit is split by calendar month; round area×dailyRate×segmentDays once to whole VND AwayFromZero; sum those exact lines. Refundable deposit20% is separately rounded, never deducted from rent. Canonical decimal strings are returned; UI never recalculates authoritative amounts. SQL decimal(18,0) total bound is enforced, while line area/rate retain approved precision. Snapshots keep unit code/version, rate version, policy version and original prices; later rate edits do not rewrite quotes. UnitVersion is provenance: future hold drift checks must compare the CURRENT SELLABLE rate ID, area and policy, not reject solely because an unrelated future sales tariff bumped the unit's aggregate version.
+
+Command receipts gained server-written organization/facility/required-role access metadata. Readback still requires the initiating actor, then current membership or corresponding staff role; a Sales→Clerk change cannot read old quote prices through a receipt bypass. Existing catalog-only receipts retain FacilityManager fallback. Authority metadata is not accepted from JSON. Quote creation/audit/receipt share the transaction; receipt return precedes time-sensitive revalidation.
+
+UI integrates explicit unit selection into verified availability results, selected organization, monthly snapshot table, separate subtotal/deposit, expiry and quote≠reservation copy. Stale search prevents new quote requests. Known save plus failed GET remains saved; unknown POST/5xx keeps frozen original payload/key, readback and explicit same-key retry. A failed retry never resolves a previous unknown attempt. Organization/context changes hide incompatible snapshots and never rewrite pending request ownership. Sales-on-behalf creation is available via scoped API; complete staff workspace UI is WP10.
+
+## Verification
+
+- Pricing RED: `dotnet test backend/WarehouseRent.sln --no-restore --filter FullyQualifiedName~PriceCalculatorTests` exit1/6FAIL (empty calculator); GREEN6PASS.
+- Exact examples:20m²×5000×4days=400000/deposit80000;10.5m²×101 Jan31→Feb2 gives1061+1061=2122/deposit424; same-month2days2121; leap Feb28,2028→Mar2 gives2121+1061=3182/deposit636. Duplicate units, invalid scales/dates and unsupported price range refused.
+- API RED: `dotnet test backend/WarehouseRent.sln --no-restore --filter FullyQualifiedName~SqlQuoteTests` exit1/3FAIL404; GREEN after routes/mapping. Extended SQL suite4PASS covers idempotency, immutable snapshot after rate edit, creation-day rather than service-day tariff, zero allocations,24h expiry, cross-org/member/foreign/hidden/no-rate rejection and current Sales-role receipt revocation.
+- UI RED: `npm --prefix frontend test -- src/features/quotes/QuotePanel.test.tsx` exit1/4FAIL; GREEN, plus integrated selection/current-org payload and unknown-command readback tests.
+- `./ops/verify.ps1` exit0: docs4/backend51/frontend43PASS, lint/typecheck/buildPASS at first completed revision.
+- Final UI `npm --prefix frontend run test:coverage` exit0:45PASS, configured aggregate92.40% statements/84.52% branches/98.01% functions/97.86% lines; no thresholds relaxed. Native/CSS/browser behavior not inferred from these figures.
+
+Two migrations add quote snapshots and command-access fields/role. Fresh real SQL tests apply these migrations; no existing retained Demo DB was automatically migrated. Added PUBLIC synthetic sales@example.test with facility-A Sales scope and the same demo password; no real account/provider change. Setup remains explicit Demo-only.
+
+No native Kestrel/browser or remote CI run after prior API-launch rejection. No workaround, publication, merge, paid service or server configuration change. Scoped model/native exact-SHA reviews and findings are recorded separately by coordinator. Full P0 remains in progress.
+
+## Review correction
+
+Native reviewer found an Important recovery dead-end: after an unknown POST, refreshing availability/selection could make the frozen original signature impossible to restore, while pending blocked all new quotes. Added RED regression (`npm --prefix frontend test -- src/features/quotes/QuotePanel.test.tsx -t 'can explicitly recover'`, exit1) then allowed explicit frozen-payload/key retry under the same current user/organization/CustomerAdmin without rebinding to changed selection. Saved snapshots remain hidden for incompatible current selection. UI displays original request dates/count. Final frontend coverage suite46PASS, lint/typecheck/build exit0; aggregate coverage thresholds unchanged/passed. No backend source changed in this correction. Reviewer independently ran10 focused pricing/SQL and24 UI tests on initial exactSHA with no other defect. WP05 RED endpoint tests remain separate unfinished work.

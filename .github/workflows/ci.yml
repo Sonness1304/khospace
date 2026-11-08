@@ -1,0 +1,54 @@
+name: Foundation verification
+on:
+  # Run explicitly after checking the account's Actions allowance.
+  # No automatic build usage or deployment on source publication.
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+          # Public synthetic password for this ephemeral loopback CI service only.
+          MSSQL_SA_PASSWORD: WarehouseRent_CI_Only!42
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'WarehouseRent_CI_Only!42' -C -Q 'SELECT 1' -b"
+          --health-interval=10s --health-timeout=5s --health-retries=20
+    env:
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      WAREHOUSERENT_TEST_SQL: 'Server=localhost,1433;User ID=sa;Password=WarehouseRent_CI_Only!42;Encrypt=True;TrustServerCertificate=True'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.19.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: dotnet restore backend/WarehouseRent.sln --locked-mode
+      - run: dotnet tool restore
+      - run: npm --prefix frontend ci --ignore-scripts --no-fund
+      - run: node --test tests/documentation.test.mjs
+      - run: dotnet build backend/WarehouseRent.sln --no-restore
+      - run: dotnet test backend/WarehouseRent.sln --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=foundation.trx" --results-directory .qa/ci
+      - run: npm --prefix frontend run lint
+      - run: npm --prefix frontend run test:coverage
+      - run: npm --prefix frontend run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: foundation-evidence
+          path: |
+            .qa/ci
+            frontend/coverage
+          if-no-files-found: warn

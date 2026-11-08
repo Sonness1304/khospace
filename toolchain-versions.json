@@ -1,0 +1,5 @@
+{
+  "node": {"version":"24.19.0","source":"node --version observed on 2026-10-27","scope":"documentation checks only"},
+  "dotnetSdk": {"version":"10.0.403","source":"dotnet --list-sdks observed on 2026-10-27","scope":"installed candidate, not application dependency resolution"},
+  "application": {"status":"NOT_IMPLEMENTED","plannedStack":"ASP.NET Core 10, EF Core, SQL Server, React and TypeScript; exact dependencies pending approval and live verification"}
+}

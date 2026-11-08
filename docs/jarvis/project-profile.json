@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "projectId": "warehouse-rent",
+  "kind": "cli",
+  "workdir": ".",
+  "stateFile": "docs/project-checkpoint.md",
+  "versions": [{"name":"documentation-node","source":"toolchain-versions.json","field":"node.version"}],
+  "commands": [{"id":"documentation-test","argv":["node","--test","tests/documentation.test.mjs"]}],
+  "url": null,
+  "testData": {"mode":"synthetic","description":"Design-phase documentation checks; no application runtime or real customer data"},
+  "acceptance": ["Owner approved P0 and UI A on October28,2026; documentation checks alone do not prove application behavior"]
+}
