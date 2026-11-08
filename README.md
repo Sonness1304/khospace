@@ -99,8 +99,8 @@ dotnet tool restore
 npm --prefix frontend ci --ignore-scripts --no-fund
 ```
 
-The repository is initially private. Cloning requires an authorized GitHub account.
-No production credentials are included.
+This public portfolio repository can be cloned without a GitHub account.
+No production credentials are included; the deployment repository remains private.
 
 ### 3. Initialize a synthetic local demo
 
@@ -191,9 +191,7 @@ These are revision-specific records, not a guarantee that every test has run in
 GitHub or every production workflow is accepted. Browser, hardware, Google-consent,
 and real-money acceptance are tracked separately.
 
-GitHub CI is **manual-only** (`workflow_dispatch`) to avoid automatically consuming
-private-repository Actions minutes. No deployment runs on push. Check account
-allowances before manually starting it; this repository does not assert a billing cap.
+GitHub CI is **manual-only** (`workflow_dispatch`). No deployment runs on push.
 
 ## Security and Payment Boundaries
 
@@ -241,5 +239,10 @@ broader mobile/accessibility checks, recovery exercises, and deployment portabil
 This is a clean source snapshot with English repository documentation, without
 private Git history, local QA artifacts, credentials, customer data, backups, or
 deployment repositories' private configuration.
+
+## License
+
+KhoSpace source and documentation are available under the [MIT License](LICENSE).
+Third-party dependencies retain their own licenses.
 
 See [contributing](CONTRIBUTING.md) for safe development and review expectations.

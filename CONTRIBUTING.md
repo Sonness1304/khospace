@@ -1,6 +1,6 @@
 # Contributing to KhoSpace
 
-Thank you for exploring the project. This is a private portfolio source publication;
+Thank you for exploring the project. This is a public portfolio source publication;
 access does not grant permission to change the hosted application, deploy
 infrastructure, move money, or access customer/bank data.
 
